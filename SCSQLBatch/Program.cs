@@ -19,6 +19,7 @@ namespace SCSQLBatch
         {
             var userid = ConfigurationManager.AppSettings["userid"];
             var password = ConfigurationManager.AppSettings["password"];
+            var password64 = ConfigurationManager.AppSettings["password64"];
             var url = ConfigurationManager.AppSettings["url"];
             var storyid = ConfigurationManager.AppSettings["storyid"];
             var connectionString = ConfigurationManager.AppSettings["connectionString"];
@@ -32,8 +33,13 @@ namespace SCSQLBatch
             }
             if (string.IsNullOrEmpty(password))
             {
-                Console.WriteLine("Error: No password provided.");
-                return;
+                // set the password from the encoded password
+                password = Encoding.Default.GetString(Convert.FromBase64String(password64));
+                if (string.IsNullOrEmpty(password64))
+                {
+                    Console.WriteLine("Error: No password provided.");
+                    return;
+                }
             }
             if (string.IsNullOrEmpty(url))
             {
@@ -45,7 +51,7 @@ namespace SCSQLBatch
                 Console.WriteLine("Error: No storyID provided.");
                 return;
             }
-            if (string.IsNullOrEmpty(connectionString) || connectionString == "CONNECTIONSTING")
+            if (string.IsNullOrEmpty(connectionString) || connectionString == "CONNECTIONSTRING")
             {
                 Console.WriteLine("Error: No connection string provided.");
                 return;
@@ -82,16 +88,18 @@ namespace SCSQLBatch
                                 var data = new List<string>();
                                 foreach (var o in objs)
                                 {
-                                    if (o is DateTime?)
+                                    if (o is DateTime)
                                     {
                                         var date = (DateTime)o;
-                                        data.Add(date.ToString("yyyy MM dd"));
+                                          data.Add(date.ToString("yyyy MM dd"));
+
                                     }
                                     else
                                     {
                                         data.Add(o.ToString());
                                     }
                                 }
+                                tempArray.Add(data);
                             }
 
                             // create our string arrar

@@ -79,8 +79,19 @@ namespace SCSQLBatch
                             {
                                 var objs = new object[reader.FieldCount];
                                 reader.GetValues(objs);
-                                var data = objs.Select(o => o.ToString()).ToList();
-                                tempArray.Add(data);
+                                var data = new List<string>();
+                                foreach (var o in objs)
+                                {
+                                    if (o is DateTime?)
+                                    {
+                                        var date = (DateTime)o;
+                                        data.Add(date.ToString("yyyy MM dd"));
+                                    }
+                                    else
+                                    {
+                                        data.Add(o.ToString());
+                                    }
+                                }
                             }
 
                             // create our string arrar

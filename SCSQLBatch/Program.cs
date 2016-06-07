@@ -70,9 +70,13 @@ namespace SCSQLBatch
 
             try
             {
+                Log($"Starting process.");
+                var start = DateTime.UtcNow;
+
                 // create our connection
                 var sc = new SharpCloudApi(userid, password, url);
                 var story = sc.LoadStory(storyid);
+
 
                 using (DbConnection connection = GetDb(connectionString))
                 {
@@ -82,119 +86,16 @@ namespace SCSQLBatch
 
                     UpdateRelationships(connection, story, queryStringRels);
 
+                    Log("Saving");
+
                     story.Save();
+
+                    Log($"Process completed in {(DateTime.UtcNow-start).Seconds} seconds.");
                 }
             }
             catch (Exception e)
             {
                 Log("Error: " + e.Message);
-            }
-        }
-
-        private static void UpdateRelationships(DbConnection connection, Story story, string queryString)
-        {
-            if (string.IsNullOrWhiteSpace(queryString)) // nothing to do
-                return;
-
-            Log("Updating relationships");
-
-            string strItem1 = "ITEM1";
-            bool bItemName1 = true;
-            string strItem2 = "ITEM2";
-            bool bItemName2 = true;
-            bool bDirection = false;
-            bool bComment = false;
-            bool bTags = false;
-
-            using (DbCommand command = connection.CreateCommand())
-            {
-                command.CommandText = queryString;
-                command.CommandType = CommandType.Text;
-
-                using (DbDataReader reader = command.ExecuteReader())
-                {
-      
-                    for (int i = 0; i < reader.FieldCount; i++)
-                    {
-                        var col = reader.GetName(i).ToUpper();
-                        if (col == "ITEM 1")
-                            strItem1 = "ITEM 1";
-                        else if (col == "EXTERNALID1")
-                        {
-                            bItemName1 = false;
-                            strItem1 = "EXTERNALID1";
-                        }
-                        else if (col == "EXTERNALID 1")
-                        {
-                            bItemName1 = false;
-                            strItem1 = "EXTERNALID 1";
-                        }
-                        else if (col == "ITEM 2")
-                            strItem2 = "ITEM 2";
-                        else if (col == "EXTERNALID2")
-                        {
-                            bItemName2 = false;
-                            strItem2 = "EXTERNALID2";
-                        }
-                        else if (col == "EXTERNALID 2")
-                        {
-                            bItemName2 = false;
-                            strItem2 = "EXTERNALID 2";
-                        }
-                        else if (col == "COMMENT")
-                            bComment = true;
-                        else if (col == "DIRECTION")
-                            bDirection = true;
-                        else if (col == "TAGS")
-                            bTags = true;
-                    }
-
-                    int row = 1;
-                    while (reader.Read())
-                    {
-                        var t1 = reader[strItem1].ToString();
-                        var t2 = reader[strItem2].ToString();
-
-                        var i1 = (bItemName1) ? story.Item_FindByName(t1) : story.Item_FindByExternalId(t1);
-                        var i2 = (bItemName2) ? story.Item_FindByName(t2) : story.Item_FindByExternalId(t2);
-
-                        if (i1 == null || i2 == null)
-                        {
-                            Log($"ERROR: Could not find items '{t1}' or '{t2}' on {row}.");
-                        }
-                        else
-                        {
-                            var rel = story.Relationship_FindByItems(i1, i2) ??
-                                      story.Relationship_AddNew(i1, i2);
-                            if (bComment)
-                                rel.Comment = reader["COMMENT"].ToString();
-                            if (bDirection)
-                            {
-                                var txt = reader["DIRECTION"].ToString().Replace(" ", "").ToUpper();
-                                if (txt.Contains("BOTH"))
-                                    rel.Direction = Relationship.RelationshipDirection.Both;
-                                else if (txt.Contains("ATOB") || txt.Contains("1TO2"))
-                                    rel.Direction = Relationship.RelationshipDirection.AtoB;
-                                else if (txt.Contains("BTOA") || txt.Contains("2TO1"))
-                                    rel.Direction = Relationship.RelationshipDirection.Both;
-                                else
-                                    rel.Direction = Relationship.RelationshipDirection.None;
-                            }
-                            if (bTags)
-                            {
-                                // TODO - delete tags - needs implementing in the SDK        
-                                var tags = reader["TAGS"].ToString();
-                                foreach (var t in tags.Split(','))
-                                {
-                                    var tag = t.Trim();
-                                    if (!string.IsNullOrEmpty(tag))
-                                        rel.Tag_AddNew(tag);
-                                }
-                            }
-                        }
-                        row++;
-                    }
-                }
             }
         }
 
@@ -224,7 +125,6 @@ namespace SCSQLBatch
                             {
                                 var date = (DateTime)o;
                                 data.Add(date.ToString("yyyy MM dd"));
-
                             }
                             else
                             {
@@ -275,7 +175,7 @@ namespace SCSQLBatch
                     string errorMessage;
                     if (story.UpdateStoryWithArray(arrayValues, false, out errorMessage))
                     {
-                        Log(string.Format("{0} rows updated.", row));
+                        Log(string.Format("{0} rows processed.", row));
                     }
                     else
                     {
@@ -285,6 +185,114 @@ namespace SCSQLBatch
             }
         }
 
+        private static void UpdateRelationships(DbConnection connection, Story story, string queryString)
+        {
+            if (string.IsNullOrWhiteSpace(queryString)) // nothing to do
+                return;
+
+            Log("Updating relationships");
+
+            string strItem1 = "ITEM1";
+            bool bItemName1 = true;
+            string strItem2 = "ITEM2";
+            bool bItemName2 = true;
+            bool bDirection = false;
+            bool bComment = false;
+            bool bTags = false;
+
+            int row = 1;
+
+            using (DbCommand command = connection.CreateCommand())
+            {
+                command.CommandText = queryString;
+                command.CommandType = CommandType.Text;
+
+                using (DbDataReader reader = command.ExecuteReader())
+                {
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                        var col = reader.GetName(i).ToUpper();
+                        if (col == "ITEM 1")
+                            strItem1 = "ITEM 1";
+                        else if (col == "EXTERNALID1")
+                        {
+                            bItemName1 = false;
+                            strItem1 = "EXTERNALID1";
+                        }
+                        else if (col == "EXTERNALID 1")
+                        {
+                            bItemName1 = false;
+                            strItem1 = "EXTERNALID 1";
+                        }
+                        else if (col == "ITEM 2")
+                            strItem2 = "ITEM 2";
+                        else if (col == "EXTERNALID2")
+                        {
+                            bItemName2 = false;
+                            strItem2 = "EXTERNALID2";
+                        }
+                        else if (col == "EXTERNALID 2")
+                        {
+                            bItemName2 = false;
+                            strItem2 = "EXTERNALID 2";
+                        }
+                        else if (col == "COMMENT")
+                            bComment = true;
+                        else if (col == "DIRECTION")
+                            bDirection = true;
+                        else if (col == "TAGS")
+                            bTags = true;
+                    }
+
+                    while (reader.Read())
+                    {
+                        var t1 = reader[strItem1].ToString();
+                        var t2 = reader[strItem2].ToString();
+
+                        var i1 = (bItemName1) ? story.Item_FindByName(t1) : story.Item_FindByExternalId(t1);
+                        var i2 = (bItemName2) ? story.Item_FindByName(t2) : story.Item_FindByExternalId(t2);
+
+                        if (i1 == null || i2 == null)
+                        {
+                            Log($"ERROR: Could not find items '{t1}' or '{t2}' on {row}.");
+                        }
+                        else
+                        {
+                            var rel = story.Relationship_FindByItems(i1, i2) ??
+                                      story.Relationship_AddNew(i1, i2);
+                            if (bComment)
+                                rel.Comment = reader["COMMENT"].ToString();
+                            if (bDirection)
+                            {
+                                var txt = reader["DIRECTION"].ToString().Replace(" ", "").ToUpper();
+                                if (txt.Contains("BOTH"))
+                                    rel.Direction = Relationship.RelationshipDirection.Both;
+                                else if (txt.Contains("ATOB") || txt.Contains("1TO2"))
+                                    rel.Direction = Relationship.RelationshipDirection.AtoB;
+                                else if (txt.Contains("BTOA") || txt.Contains("2TO1"))
+                                    rel.Direction = Relationship.RelationshipDirection.Both;
+                                else
+                                    rel.Direction = Relationship.RelationshipDirection.None;
+                            }
+                            if (bTags)
+                            {
+                                // TODO - delete tags - needs implementing in the SDK        
+                                var tags = reader["TAGS"].ToString();
+                                foreach (var t in tags.Split(','))
+                                {
+                                    var tag = t.Trim();
+                                    if (!string.IsNullOrEmpty(tag))
+                                        rel.Tag_AddNew(tag);
+                                }
+                            }
+                        }
+                        row++;
+                    }
+                }
+            }
+            Log($"{row} rows processed.");
+
+        }
 
         private static DbConnection GetDb(string connectionString)
         {
@@ -303,11 +311,14 @@ namespace SCSQLBatch
          
         private static void Log(string text)
         {
+            var now = DateTime.UtcNow;
+            text = now.ToShortDateString() + " " + now.ToLongTimeString() + " " + text + "\r\n";
             var LogFile = ConfigurationManager.AppSettings["LogFile"];
             if (!string.IsNullOrEmpty(LogFile) && LogFile != "LOGFILE")
             {
                 try
                 {
+
                     File.AppendAllText(LogFile, text);
                 }
                 catch (Exception ex)
@@ -316,9 +327,9 @@ namespace SCSQLBatch
                     Console.WriteLine($"{ex.Message}");
                 }
             }
-            text += "\r\n";
-            Debug.WriteLine(text);
-            Console.WriteLine(text);
+
+            Debug.Write(text);
+            Console.Write(text);
         }
     }
 }

@@ -6,6 +6,7 @@ using System.Data.Common;
 using System.Data.Odbc;
 using System.Data.OleDb;
 using System.Data.SqlClient;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -302,7 +303,6 @@ namespace SCSQLBatch
          
         private static void Log(string text)
         {
-            text += "\r\n";
             var LogFile = ConfigurationManager.AppSettings["LogFile"];
             if (!string.IsNullOrEmpty(LogFile) && LogFile != "LOGFILE")
             {
@@ -316,6 +316,8 @@ namespace SCSQLBatch
                     Console.WriteLine($"{ex.Message}");
                 }
             }
+            text += "\r\n";
+            Debug.WriteLine(text);
             Console.WriteLine(text);
         }
     }

@@ -19,6 +19,8 @@ namespace SCSQLBatch
 {
     class Program
     {
+        static bool unpublishItems = false;
+
         static void Main(string[] args)
         {
             var userid = ConfigurationManager.AppSettings["userid"];
@@ -29,6 +31,9 @@ namespace SCSQLBatch
             var connectionString = ConfigurationManager.AppSettings["connectionString"];
             var queryString = ConfigurationManager.AppSettings["queryString"];
             var queryStringRels = ConfigurationManager.AppSettings["queryStringRels"];
+            bool unpubItems;
+            if (bool.TryParse(ConfigurationManager.AppSettings["unpublishItems"], out unpubItems))
+                unpublishItems = unpubItems;
 
             // basic checks
             if (string.IsNullOrEmpty(userid) || userid == "USERID")
@@ -106,7 +111,7 @@ namespace SCSQLBatch
                 return;
 
             Log("Updating items");
-
+            
             using (DbCommand command = connection.CreateCommand())
             {
                 command.CommandText = queryString;
@@ -174,13 +179,32 @@ namespace SCSQLBatch
 
                     // pass the array to SharpCloud
                     string errorMessage;
-                    if (story.UpdateStoryWithArray(arrayValues, false, out errorMessage))
+
+                    if (unpublishItems)
                     {
-                        Log(string.Format("{0} rows processed.", row));
+                        List<Guid> updatedItems;
+                        if (story.UpdateStoryWithArray(arrayValues, false, out errorMessage, out updatedItems))
+                        {
+                            foreach (var item in story.Items)
+                            {
+                                item.AsElement.IsInRoadmap = updatedItems.Contains(item.AsElement.ID);
+                            }
+                            Log(string.Format("{0} rows processed.", row));
+                        }
+                        else
+                        {
+                            Log(errorMessage);
+                        }
                     }
-                    else
-                    {
-                        Log(errorMessage);
+                    else {
+                        if (story.UpdateStoryWithArray(arrayValues, false, out errorMessage))
+                        {
+                            Log(string.Format("{0} rows processed.", row));
+                        }
+                        else
+                        {
+                            Log(errorMessage);
+                        }
                     }
                 }
             }

@@ -34,6 +34,12 @@ namespace SCSQLBatch
             bool unpubItems;
             if (bool.TryParse(ConfigurationManager.AppSettings["unpublishItems"], out unpubItems))
                 unpublishItems = unpubItems;
+            var proxy = ConfigurationManager.AppSettings["proxy"];
+            bool proxyAnonymous = true;
+            bool.TryParse(ConfigurationManager.AppSettings["proxyAnonymous"], out proxyAnonymous);
+            var proxyUsername = ConfigurationManager.AppSettings["proxyUsername"];
+            var proxyPassword = ConfigurationManager.AppSettings["proxyPassword"];
+            var proxyPassword64 = ConfigurationManager.AppSettings["proxyPassword64"];
 
             // basic checks
             if (string.IsNullOrEmpty(userid) || userid == "USERID")
@@ -71,7 +77,17 @@ namespace SCSQLBatch
                 Log("Error: No database query provided.");
                 return;
             }
-
+            if (string.IsNullOrEmpty(proxyPassword))
+            {
+                proxyPassword = Encoding.Default.GetString(Convert.FromBase64String(proxyPassword64));
+            }
+            if (!string.IsNullOrEmpty(proxy) && !proxyAnonymous)
+            {
+                if (string.IsNullOrEmpty(proxyUsername) || string.IsNullOrEmpty(proxyPassword))
+                {
+                    Log("Error: No proxy username or password provided.");
+                }
+            }
             // do the work
 
             try
@@ -80,7 +96,7 @@ namespace SCSQLBatch
                 var start = DateTime.UtcNow;
 
                 // create our connection
-                var sc = new SharpCloudApi(userid, password, url);
+                var sc = new SharpCloudApi(userid, password, url, proxy, proxyAnonymous, proxyUsername, proxyPassword);
                 var story = sc.LoadStory(storyid);
 
 

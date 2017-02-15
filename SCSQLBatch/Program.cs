@@ -77,15 +77,15 @@ namespace SCSQLBatch
                 Log("Error: No database query provided.");
                 return;
             }
-            if (string.IsNullOrEmpty(proxyPassword))
-            {
-                proxyPassword = Encoding.Default.GetString(Convert.FromBase64String(proxyPassword64));
-            }
             if (!string.IsNullOrEmpty(proxy) && !proxyAnonymous)
             {
                 if (string.IsNullOrEmpty(proxyUsername) || string.IsNullOrEmpty(proxyPassword))
                 {
                     Log("Error: No proxy username or password provided.");
+                }
+                if (string.IsNullOrEmpty(proxyPassword))
+                {
+                    proxyPassword = Encoding.Default.GetString(Convert.FromBase64String(proxyPassword64));
                 }
             }
             // do the work
